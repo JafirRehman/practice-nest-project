@@ -8,6 +8,6 @@ export class AppService {
   }
 
   getBye(): string {
-    return 'Good Bye People';
+    return 'Good Bye People. See you again';
   }
 }
