@@ -60,7 +60,7 @@ jobs:
               git clone git@github.com:JafirRehman/practice-nest-project.git .
             fi
 
-            echo "Installing dependencies.."
+            echo "Installing dependencies..."
             npm ci
 
             echo "Building app..."
