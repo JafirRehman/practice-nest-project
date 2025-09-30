@@ -1,0 +1,71 @@
+name: CI + CD (EC2)
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  ci:
+    name: CI (install, test, build)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18.20.8'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+  deploy:
+    name: Deploy to EC2
+    needs: ci
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Deploy SSH to EC2 and update
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.HOST_DNS }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          script: |
+            set -e
+            DEPLOY_DIR=/home/${{ secrets.USERNAME }}/practice-nest-project
+            mkdir -p $DEPLOY_DIR
+            cd $DEPLOY_DIR
+
+            if [ -d .git ]; then
+              echo "Repo exists, pulling latest changes..."
+              git fetch --all
+              git reset --hard origin/main
+            else
+              echo "Fresh clone..."
+              rm -rf $DEPLOY_DIR/*   # clean directory before cloning
+              ssh-keyscan github.com >> ~/.ssh/known_hosts
+              git clone git@github.com:JafirRehman/practice-nest-project.git .
+            fi
+
+            echo "Installing dependencies..."
+            npm ci
+
+            echo "Building app..."
+            npm run build
+
+            echo "Restarting with PM2..."
+            pm2 restart practice-nest-project || pm2 start npm --name "practice-nest-project" -- start
+            pm2 save
